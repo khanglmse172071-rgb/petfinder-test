@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PetFinder – Tìm kiếm chó mèo đi lạc</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --orange: #F5823A; --orange-dark: #D96B25; --orange-light: #FFF3EC;
+      --orange-pale: #FDE8D8; --text: #2C2415; --text-muted: #6B5744;
+      --bg: #FFFAF7; --white: #FFFFFF; --border: #F0D8C8;
+      --green: #3DAB6E; --green-light: #E8F7EF; --red: #E24B4A; --red-light: #FDEAEA;
+      --radius: 14px; --radius-sm: 8px;
+      --shadow: 0 2px 16px rgba(200,120,60,0.10);
+      --shadow-hover: 0 6px 28px rgba(200,120,60,0.18);
+    }
+    body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+    /* ===== NAVBAR ===== */
+    nav {
+      background: var(--orange); padding: 0 5%;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px; position: sticky; top: 0; z-index: 300;
+      box-shadow: 0 2px 12px rgba(180,80,0,0.18);
+    }
+    .nav-logo { font-family: 'Baloo 2', cursive; font-size: 1.5rem; font-weight: 800; color: white; text-decoration: none; display: flex; align-items: center; gap: 8px; }
+    .nav-links { display: flex; gap: 6px; list-style: none; align-items: center; }
+    .nav-links a { color: white; text-decoration: none; font-weight: 700; font-size: 0.9rem; padding: 7px 16px; border-radius: 8px; transition: background 0.18s; }
+    .nav-links a:hover, .nav-links a.active { background: rgba(255,255,255,0.2); }
+    .nav-auth { display: flex; gap: 8px; margin-left: 10px; }
+    .btn-login { background: rgba(255,255,255,0.18) !important; color: white !important; border: 1.5px solid rgba(255,255,255,0.5) !important; border-radius: 8px; padding: 7px 18px; font-weight: 700; font-size: 0.9rem; cursor: pointer; font-family: 'Nunito', sans-serif; transition: background 0.15s; }
+    .btn-login:hover { background: rgba(255,255,255,0.3) !important; }
+    .btn-register { background: white !important; color: var(--orange) !important; border: none; border-radius: 8px; padding: 8px 18px; font-weight: 800; font-size: 0.9rem; cursor: pointer; font-family: 'Nunito', sans-serif; transition: opacity 0.15s; }
+    .btn-register:hover { opacity: 0.88; }
+
+    /* User avatar in nav (shown after login) */
+    .nav-user { display: none; align-items: center; gap: 10px; }
+    .nav-avatar { width: 36px; height: 36px; border-radius: 50%; background: white; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; cursor: pointer; border: 2px solid rgba(255,255,255,0.5); }
+    .nav-username { color: white; font-weight: 700; font-size: 0.9rem; }
+    .btn-logout { background: rgba(255,255,255,0.15); color: white; border: 1.5px solid rgba(255,255,255,0.4); border-radius: 8px; padding: 6px 14px; font-size: 0.82rem; font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif; transition: background 0.15s; }
+    .btn-logout:hover { background: rgba(255,255,255,0.28); }
+
+    /* ===== HERO ===== */
+    .hero { position: relative; min-height: 520px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: linear-gradient(135deg,#F5823A 0%,#E86A20 60%,#C95010 100%); }
+    .hero-bg { position: absolute; inset: 0; background: url('https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=1400&q=70') center/cover no-repeat; opacity: 0.22; }
+    .hero-content { position: relative; text-align: center; padding: 60px 5%; }
+    .hero-content h1 { font-family: 'Baloo 2', cursive; font-size: clamp(2rem,5vw,3.2rem); font-weight: 800; color: white; text-shadow: 0 2px 12px rgba(0,0,0,0.25); margin-bottom: 12px; }
+    .hero-content p { font-size: 1.1rem; color: rgba(255,255,255,0.92); margin-bottom: 32px; max-width: 520px; margin-left: auto; margin-right: auto; }
+    .hero-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary { background: white; color: var(--orange-dark); font-weight: 800; font-size: 1rem; padding: 13px 30px; border-radius: var(--radius-sm); border: none; cursor: pointer; text-decoration: none; transition: transform 0.15s, box-shadow 0.15s; display: inline-block; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+    .btn-outline { background: transparent; color: white; font-weight: 700; font-size: 1rem; padding: 13px 30px; border-radius: var(--radius-sm); border: 2px solid white; cursor: pointer; text-decoration: none; transition: background 0.15s; display: inline-block; }
+    .btn-outline:hover { background: rgba(255,255,255,0.15); }
+
+    /* ===== SEARCH ===== */
+    .search-section { background: white; padding: 32px 5%; box-shadow: 0 4px 20px rgba(200,120,60,0.08); }
+    .search-bar { max-width: 800px; margin: 0 auto; display: flex; gap: 10px; flex-wrap: wrap; }
+    .search-bar select, .search-bar input { flex: 1; min-width: 140px; padding: 11px 16px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'Nunito', sans-serif; font-size: 0.95rem; background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s; }
+    .search-bar select:focus, .search-bar input:focus { border-color: var(--orange); }
+    .btn-search { background: var(--orange); color: white; font-weight: 700; padding: 11px 28px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 0.95rem; font-family: 'Nunito', sans-serif; transition: background 0.15s, transform 0.12s; white-space: nowrap; }
+    .btn-search:hover { background: var(--orange-dark); transform: translateY(-1px); }
+
+    /* ===== STATS ===== */
+    .stats-section { padding: 52px 5%; background: var(--orange-light); }
+    .stats-grid { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 20px; }
+    .stat-card { background: white; border-radius: var(--radius); padding: 28px 20px; text-align: center; border: 1.5px solid var(--border); box-shadow: var(--shadow); transition: transform 0.18s; }
+    .stat-card:hover { transform: translateY(-4px); }
+    .stat-icon { font-size: 2.2rem; margin-bottom: 10px; }
+    .stat-num { font-family: 'Baloo 2', cursive; font-size: 2rem; font-weight: 800; color: var(--orange); line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-size: 0.88rem; color: var(--text-muted); font-weight: 600; }
+
+    /* ===== PETS ===== */
+    .section { padding: 60px 5%; }
+    .section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 32px; flex-wrap: wrap; gap: 12px; }
+    .section-title { font-family: 'Baloo 2', cursive; font-size: 1.7rem; font-weight: 800; color: var(--text); }
+    .section-title span { color: var(--orange); }
+    .see-all { color: var(--orange); font-weight: 700; font-size: 0.9rem; text-decoration: none; }
+    .see-all:hover { text-decoration: underline; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; }
+    .tab { padding: 8px 20px; border-radius: 20px; border: 1.5px solid var(--border); background: white; color: var(--text-muted); font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.15s; font-family: 'Nunito', sans-serif; }
+    .tab.active, .tab:hover { background: var(--orange); color: white; border-color: var(--orange); }
+    .pets-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 22px; }
+    .pet-card { background: white; border-radius: var(--radius); overflow: hidden; border: 1.5px solid var(--border); box-shadow: var(--shadow); transition: transform 0.18s, box-shadow 0.18s; cursor: pointer; }
+    .pet-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); }
+    .pet-img { width: 100%; height: 190px; display: flex; align-items: center; justify-content: center; font-size: 4rem; }
+    .pet-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+    .badge-lost { background: var(--red-light); color: var(--red); }
+    .badge-found { background: var(--green-light); color: var(--green); }
+    .badge-adopt { background: var(--orange-pale); color: var(--orange-dark); }
+    .pet-info { padding: 14px 16px; }
+    .pet-name { font-family: 'Baloo 2', cursive; font-size: 1.1rem; font-weight: 700; margin: 6px 0 4px; }
+    .pet-meta { font-size: 0.83rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+    .pet-date { font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
+    .contact-btn { width: 100%; margin-top: 10px; padding: 9px; background: var(--orange); color: white; border: none; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.9rem; cursor: pointer; font-family: 'Nunito', sans-serif; transition: background 0.15s; }
+    .contact-btn:hover { background: var(--orange-dark); }
+
+    /* ===== MAP SECTION ===== */
+    .map-section { padding: 60px 5%; background: white; }
+    .map-wrapper { position: relative; margin-top: 32px; border-radius: var(--radius); overflow: hidden; border: 2px solid var(--border); box-shadow: var(--shadow); }
+    #map { height: 480px; width: 100%; }
+    .map-legend { position: absolute; bottom: 20px; left: 20px; z-index: 999; background: white; border-radius: var(--radius-sm); padding: 12px 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); border: 1px solid var(--border); }
+    .map-legend h4 { font-size: 0.85rem; font-weight: 800; margin-bottom: 8px; color: var(--text); }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .map-controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+    .map-filter-btn { padding: 7px 16px; border-radius: 20px; border: 1.5px solid var(--border); background: white; color: var(--text-muted); font-weight: 700; font-size: 0.85rem; cursor: pointer; font-family: 'Nunito', sans-serif; transition: all 0.15s; }
+    .map-filter-btn.active, .map-filter-btn:hover { background: var(--orange); color: white; border-color: var(--orange); }
+    .map-info { font-size: 0.85rem; color: var(--text-muted); margin-left: auto; }
+
+    /* ===== HOW IT WORKS ===== */
+    .how-section { background: var(--orange-light); padding: 60px 5%; }
+    .how-grid { max-width: 900px; margin: 36px auto 0; display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 24px; }
+    .step-card { background: white; border-radius: var(--radius); padding: 32px 22px; text-align: center; border: 1.5px solid var(--border); }
+    .step-num { width: 44px; height: 44px; background: var(--orange); color: white; border-radius: 50%; font-family: 'Baloo 2', cursive; font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+    .step-icon { font-size: 2rem; margin-bottom: 10px; }
+    .step-title { font-weight: 800; font-size: 1rem; margin-bottom: 8px; }
+    .step-desc { font-size: 0.88rem; color: var(--text-muted); line-height: 1.55; }
+
+    /* ===== FORM ===== */
+    .form-section { padding: 60px 5%; background: var(--bg); }
+    .form-tabs { display: flex; gap: 0; margin-bottom: 36px; border-bottom: 2px solid var(--border); }
+    .form-tab { padding: 12px 28px; font-weight: 700; font-size: 1rem; cursor: pointer; border: none; background: none; font-family: 'Nunito', sans-serif; color: var(--text-muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color 0.15s; }
+    .form-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+    .form-container { max-width: 680px; margin: 0 auto; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label { font-weight: 700; font-size: 0.9rem; }
+    .form-group label span { color: var(--red); }
+    .form-control { padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'Nunito', sans-serif; font-size: 0.95rem; background: white; color: var(--text); outline: none; transition: border-color 0.15s; }
+    .form-control:focus { border-color: var(--orange); }
+    textarea.form-control { resize: vertical; min-height: 90px; }
+    .upload-area { border: 2px dashed var(--border); border-radius: var(--radius); padding: 28px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .upload-area:hover { border-color: var(--orange); background: var(--orange-light); }
+    .upload-icon { font-size: 2rem; margin-bottom: 8px; }
+    .upload-text { font-size: 0.9rem; color: var(--text-muted); }
+    .upload-text strong { color: var(--orange); }
+    .submit-btn { width: 100%; padding: 14px; background: var(--orange); color: white; border: none; border-radius: var(--radius-sm); font-family: 'Nunito', sans-serif; font-size: 1.05rem; font-weight: 800; cursor: pointer; margin-top: 8px; transition: background 0.15s, transform 0.12s; }
+    .submit-btn:hover { background: var(--orange-dark); transform: translateY(-1px); }
+
+    /* ===== STORIES ===== */
+    .stories-section { background: white; padding: 60px 5%; }
+    .stories-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 22px; margin-top: 36px; }
+    .story-card { background: var(--bg); border-radius: var(--radius); padding: 24px; border: 1.5px solid var(--border); box-shadow: var(--shadow); }
+    .story-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .story-avatar { width: 48px; height: 48px; border-radius: 50%; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; background: var(--orange-pale); }
+    .story-user strong { display: block; font-size: 0.95rem; }
+    .story-user span { font-size: 0.8rem; color: var(--text-muted); }
+    .story-text { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; font-style: italic; }
+    .story-stars { color: var(--orange); font-size: 0.9rem; margin-top: 10px; }
+
+    /* ===== FOOTER ===== */
+    footer { background: #2C1F14; color: #D4C0B0; padding: 52px 5% 28px; }
+    .footer-grid { display: grid; grid-template-columns: 2fr repeat(3,1fr); gap: 36px; margin-bottom: 40px; }
+    .footer-brand p { font-size: 0.88rem; line-height: 1.7; margin-top: 10px; max-width: 260px; }
+    .footer-logo { font-family: 'Baloo 2', cursive; font-size: 1.4rem; font-weight: 800; color: var(--orange); }
+    .footer-col h4 { font-size: 0.95rem; font-weight: 800; color: white; margin-bottom: 14px; }
+    .footer-col ul { list-style: none; }
+    .footer-col ul li { margin-bottom: 8px; }
+    .footer-col ul li a { color: #D4C0B0; text-decoration: none; font-size: 0.88rem; transition: color 0.15s; }
+    .footer-col ul li a:hover { color: var(--orange); }
+    .footer-bottom { border-top: 1px solid #3D2E20; padding-top: 20px; display: flex; justify-content: space-between; font-size: 0.82rem; color: #8A7060; flex-wrap: wrap; gap: 8px; }
+    .footer-socials { display: flex; gap: 10px; margin-top: 14px; }
+    .social-btn { width: 36px; height: 36px; border-radius: 8px; background: #3D2E20; display: flex; align-items: center; justify-content: center; color: #D4C0B0; text-decoration: none; font-size: 0.85rem; transition: background 0.15s; }
+    .social-btn:hover { background: var(--orange); color: white; }
+
+    /* ===== MODALS COMMON ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 500;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(3px);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white; border-radius: var(--radius);
+      padding: 36px 32px; max-width: 440px; width: 90%;
+      position: relative; animation: modalIn 0.22s ease;
+    }
+    @keyframes modalIn { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted); line-height: 1; }
+    .modal-close:hover { color: var(--text); }
+
+    /* ===== PET DETAIL MODAL ===== */
+    #petModal .modal { max-width: 420px; }
+    .modal-pet-info { display: flex; gap: 14px; margin-bottom: 18px; }
+    .modal-pet-img { width: 90px; height: 90px; border-radius: 10px; background: var(--orange-pale); font-size: 2.5rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .modal-detail { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 4px; }
+    .modal-detail strong { color: var(--text); }
+    .modal-contact-row { display: flex; gap: 10px; margin-top: 14px; }
+    .modal-contact-row a { flex: 1; padding: 10px; border-radius: var(--radius-sm); text-align: center; font-weight: 700; font-size: 0.9rem; text-decoration: none; transition: opacity 0.15s; }
+    .modal-contact-row a:hover { opacity: 0.85; }
+    .btn-zalo { background: #006AF5; color: white; }
+    .btn-call { background: var(--green); color: white; }
+
+    /* ===== AUTH MODALS ===== */
+    .auth-modal { max-width: 420px; }
+    .auth-logo { text-align: center; font-size: 2rem; margin-bottom: 4px; }
+    .auth-title { font-family: 'Baloo 2', cursive; font-size: 1.5rem; font-weight: 800; text-align: center; margin-bottom: 4px; color: var(--text); }
+    .auth-sub { font-size: 0.88rem; color: var(--text-muted); text-align: center; margin-bottom: 24px; }
+    .auth-form { display: flex; flex-direction: column; gap: 14px; }
+    .auth-field { display: flex; flex-direction: column; gap: 5px; }
+    .auth-field label { font-weight: 700; font-size: 0.88rem; color: var(--text); }
+    .auth-input { padding: 11px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'Nunito', sans-serif; font-size: 0.95rem; color: var(--text); outline: none; transition: border-color 0.15s; background: var(--bg); }
+    .auth-input:focus { border-color: var(--orange); }
+    .auth-input-wrap { position: relative; }
+    .auth-input-wrap .auth-input { width: 100%; padding-right: 42px; }
+    .toggle-pw { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.1rem; color: var(--text-muted); }
+    .auth-btn { padding: 13px; background: var(--orange); color: white; border: none; border-radius: var(--radius-sm); font-family: 'Nunito', sans-serif; font-size: 1rem; font-weight: 800; cursor: pointer; transition: background 0.15s, transform 0.12s; margin-top: 4px; }
+    .auth-btn:hover { background: var(--orange-dark); transform: translateY(-1px); }
+    .auth-divider { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 0.85rem; }
+    .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .auth-social { display: flex; gap: 10px; }
+    .auth-social-btn { flex: 1; padding: 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: white; font-family: 'Nunito', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .auth-social-btn:hover { background: var(--bg); }
+    .auth-switch { text-align: center; font-size: 0.88rem; color: var(--text-muted); margin-top: 6px; }
+    .auth-switch a { color: var(--orange); font-weight: 700; text-decoration: none; cursor: pointer; }
+    .auth-switch a:hover { text-decoration: underline; }
+    .auth-forgot { text-align: right; font-size: 0.82rem; }
+    .auth-forgot a { color: var(--orange); text-decoration: none; cursor: pointer; }
+    .auth-forgot a:hover { text-decoration: underline; }
+    .auth-terms { font-size: 0.8rem; color: var(--text-muted); text-align: center; }
+    .auth-terms a { color: var(--orange); text-decoration: none; }
+    .auth-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .auth-success { display: none; text-align: center; padding: 20px 0; }
+    .auth-success-icon { font-size: 3.5rem; margin-bottom: 12px; }
+    .auth-success h3 { font-family: 'Baloo 2', cursive; font-size: 1.3rem; font-weight: 800; margin-bottom: 8px; }
+    .auth-success p { font-size: 0.9rem; color: var(--text-muted); }
+    .pw-strength { height: 4px; border-radius: 2px; margin-top: 4px; background: var(--border); overflow: hidden; }
+    .pw-strength-bar { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; width: 0%; }
+    .pw-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
+
+    @media (max-width: 700px) {
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .auth-row-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .footer-grid { grid-template-columns: 1fr; }
+      nav { padding: 0 3%; }
+      .nav-links { gap: 2px; }
+      .nav-links a { padding: 6px 10px; font-size: 0.82rem; }
+    }
+
+    /* ===== TOAST NOTIFICATION ===== */
+    #toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: #2C1F14; color: white; padding: 13px 24px; border-radius: 30px; font-weight: 700; font-size: 0.92rem; z-index: 9999; transition: transform 0.35s cubic-bezier(.2,1.2,.5,1), opacity 0.3s; opacity: 0; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* ===== FAVORITE BUTTON ===== */
+    .fav-btn { position: absolute; top: 10px; right: 10px; background: white; border: none; border-radius: 50%; width: 34px; height: 34px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); transition: transform 0.18s, box-shadow 0.18s; z-index: 2; }
+    .fav-btn:hover { transform: scale(1.15); }
+    .fav-btn.active { background: var(--red-light); }
+    .pet-card { position: relative; }
+
+    /* ===== MY POSTS PANEL ===== */
+    .my-posts-panel { display: none; position: fixed; top: 64px; right: 0; width: 340px; height: calc(100vh - 64px); background: white; z-index: 400; box-shadow: -4px 0 24px rgba(0,0,0,0.15); overflow-y: auto; padding: 20px; border-left: 2px solid var(--border); }
+    .my-posts-panel.open { display: block; }
+    .panel-title { font-family: 'Baloo 2', cursive; font-size: 1.2rem; font-weight: 800; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .panel-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted); }
+    .mini-card { background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
+    .mini-icon { font-size: 1.8rem; }
+    .mini-info { flex: 1; }
+    .mini-name { font-weight: 800; font-size: 0.95rem; }
+    .mini-meta { font-size: 0.78rem; color: var(--text-muted); }
+    .mini-delete { background: var(--red-light); border: none; border-radius: 6px; color: var(--red); font-size: 0.78rem; font-weight: 700; padding: 5px 9px; cursor: pointer; font-family: 'Nunito', sans-serif; }
+    .mini-delete:hover { background: var(--red); color: white; }
+    .empty-panel { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+    .empty-panel div { font-size: 3rem; margin-bottom: 10px; }
+
+    /* ===== SEARCH RESULTS BANNER ===== */
+    #searchBanner { display: none; background: var(--orange-light); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 16px; margin-bottom: 16px; font-size: 0.9rem; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+    .clear-search { color: var(--orange); cursor: pointer; font-size: 0.85rem; }
+    .clear-search:hover { text-decoration: underline; }
+
+    /* ===== USER POSTED BADGE ===== */
+    .my-post-badge { background: var(--orange); color: white; font-size: 0.7rem; font-weight: 800; padding: 2px 7px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+
+    /* ===== IMAGE PREVIEW ===== */
+    .img-preview-item { width: 70px; height: 70px; border-radius: 8px; object-fit: cover; border: 2px solid var(--border); }
+
+    /* ===== FORM TAB TRACKING ===== */
+    #activeFormType { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <a class="nav-logo" href="#">🐶🐱 PetFinder</a>
+  <ul class="nav-links">
+    <li><a href="#" class="active">Trang chủ</a></li>
+    <li><a href="#pets">Thú cưng</a></li>
+    <li><a href="#map">Bản đồ</a></li>
+    <li><a href="#form">Đăng tin</a></li>
+  </ul>
+  <div class="nav-auth" id="navAuth">
+    <button class="btn-login" onclick="openAuthModal('login')">Đăng nhập</button>
+    <button class="btn-register" onclick="openAuthModal('register')">Đăng ký</button>
+  </div>
+  <div class="nav-user" id="navUser">
+    <div class="nav-avatar" id="navAvatar">👤</div>
+    <span class="nav-username" id="navUsername">Người dùng</span>
+    <button class="btn-login" onclick="openMyPosts()" style="margin-right:4px">📋 Tin của tôi</button>
+    <button class="btn-logout" onclick="logout()">Đăng xuất</button>
+  </div>
+</nav>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- MY POSTS PANEL -->
+<div class="my-posts-panel" id="myPostsPanel">
+  <div class="panel-title">📋 Tin đã đăng <button class="panel-close" onclick="closeMyPosts()">✕</button></div>
+  <div id="myPostsList"></div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <h1>🐾 Tìm kiếm chó mèo đi lạc</h1>
+    <p>Kết nối những người yêu động vật và giúp thú cưng trở về nhà.</p>
+    <div class="hero-btns">
+      <a href="#form" class="btn-primary">📢 Đăng tin thất lạc</a>
+      <a href="#form" class="btn-outline">🏠 Đăng tin nhận nuôi</a>
+    </div>
+  </div>
+</section>
+
+<!-- SEARCH -->
+<section class="search-section">
+  <div class="search-bar">
+    <select id="sType"><option value="">🐾 Loại thú cưng</option><option value="chó">🐶 Chó</option><option value="mèo">🐱 Mèo</option><option value="thỏ">🐰 Thỏ</option></select>
+    <select id="sArea"><option value="">📍 Khu vực</option><option>TP. Hồ Chí Minh</option>
+      <option>Quận 1</option><option>Quận 2</option><option>Quận 3</option><option>Quận 4</option>
+      <option>Quận 5</option><option>Quận 6</option><option>Quận 7</option><option>Quận 8</option>
+      <option>Quận 10</option><option>Quận 11</option><option>Quận 12</option>
+      <option>Bình Thạnh</option><option>Gò Vấp</option><option>Tân Bình</option><option>Tân Phú</option>
+      <option>Phú Nhuận</option><option>Bình Tân</option><option>Thủ Đức</option></select>
+    <select id="sStatus"><option value="">📋 Trạng thái</option><option value="lost">Đang thất lạc</option><option value="found">Đã tìm thấy</option><option value="adopt">Chờ nhận nuôi</option></select>
+    <input type="text" id="sKeyword" placeholder="🔍 Tìm theo tên, giống, đặc điểm..." onkeydown="if(event.key==='Enter')doSearch()"/>
+    <button class="btn-search" onclick="doSearch()">Tìm kiếm</button>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="stats-section">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-icon">📢</div><div class="stat-num">126</div><div class="stat-label">Tin đăng thất lạc</div></div>
+    <div class="stat-card"><div class="stat-icon">🏠</div><div class="stat-num">97</div><div class="stat-label">Thú cưng đã về nhà</div></div>
+    <div class="stat-card"><div class="stat-icon">🤝</div><div class="stat-num">20</div><div class="stat-label">Đã được nhận nuôi</div></div>
+    <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-num">200+</div><div class="stat-label">Thành viên cộng đồng</div></div>
+  </div>
+</section>
+
+<!-- PETS -->
+<section class="section" id="pets">
+  <div class="section-header">
+    <h2 class="section-title">Thú cưng <span>đang cần tìm</span></h2>
+    <a href="#" class="see-all">Xem tất cả →</a>
+  </div>
+  <div id="searchBanner" style="display:none;background:var(--orange-light);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:0.9rem;font-weight:700;justify-content:space-between;align-items:center;">
+    <span id="searchBannerText">Kết quả tìm kiếm</span>
+    <span class="clear-search" onclick="clearSearch()">✕ Xóa bộ lọc</span>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="filterPets(this,'all')">🐾 Tất cả</button>
+    <button class="tab" onclick="filterPets(this,'lost')">🔴 Đang thất lạc</button>
+    <button class="tab" onclick="filterPets(this,'found')">🟢 Đã tìm thấy</button>
+    <button class="tab" onclick="filterPets(this,'adopt')">🟡 Chờ nhận nuôi</button>
+  </div>
+  <div class="pets-grid" id="petsGrid">
+    <div class="pet-card" data-status="lost" onclick="openPetModal('Mochi','Chó Poodle, đực, 2 tuổi','Quận 3, TP.HCM','0901 234 567','28/05/2024','🐶')">
+      <div class="pet-img" style="background:#FDE8D8">🐶</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+        <div class="pet-name">Mochi</div>
+        <div class="pet-meta">🐶 Poodle · Đực · 2 tuổi</div>
+        <div class="pet-meta">📍 Quận 3, TP. Hồ Chí Minh</div>
+        <div class="pet-date"><span>📅 28/12/2025</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+        <button class="contact-btn">📞 Liên hệ ngay</button>
+      </div>
+    </div>
+   
+    <div class="pet-card" data-status="lost" onclick="openPetModal('Kitty','Mèo Anh lông ngắn, cái, 1 tuổi','Bình Thạnh, TP.HCM','0912 345 678','27/05/2024','🐱')">
+      <div class="pet-img" style="background:#E8F7EF">🐱</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+        <div class="pet-name">Kitty</div>
+        <div class="pet-meta">🐱 Anh lông ngắn · Cái · 1 tuổi</div>
+        <div class="pet-meta">📍 Bình Thạnh, TP. Hồ Chí Minh</div>
+        <div class="pet-date"><span>📅 27/11/2025</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+        <button class="contact-btn">📞 Liên hệ ngay</button>
+      </div>
+    </div>
+   
+    <div class="pet-card" data-status="found" onclick="openPetModal('Buddy','Chó Golden Retriever, đực, 3 tuổi','Gò Vấp, TP.HCM','0933 456 789','25/05/2024','🐕')">
+      <div class="pet-img" style="background:#FFF3EC">🐕</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-found">🟢 Đã tìm thấy</span>
+        <div class="pet-name">Buddy</div>
+        <div class="pet-meta">🐕 Golden Retriever · Đực · 3 tuổi</div>
+        <div class="pet-meta">📍 Gò Vấp, TP. Hồ Chí Minh</div>
+        <div class="pet-date"><span>📅 03/06/2026</span><span style="color:var(--green);font-weight:700">Tìm thấy ✓</span></div>
+        <button class="contact-btn" style="background:var(--green)">📞 Liên hệ</button>
+      </div>
+    </div>
+    
+    <div class="pet-card" data-status="adopt" onclick="openPetModal('Luna','Mèo ta, cái, 8 tháng','Tân Bình, TP.HCM','0944 567 890','20/05/2024','🐈')">
+      <div class="pet-img" style="background:#FDE8D8">🐈</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-adopt">🟡 Chờ nhận nuôi</span>
+        <div class="pet-name">Luna</div>
+        <div class="pet-meta">🐈 Mèo ta · Cái · 8 tháng</div>
+        <div class="pet-meta">📍 Tân Bình, TP. Hồ Chí Minh</div>
+        <div class="pet-date"><span>📅 23/05/2026</span><span style="color:var(--orange);font-weight:700">Nhận nuôi</span></div>
+        <button class="contact-btn" style="background:var(--orange-dark)">🏠 Nhận nuôi</button>
+      </div>
+    </div>
+    
+    <div class="pet-card" data-status="lost" onclick="openPetModal('Bobby','Chó Shiba Inu, đực, 4 tuổi','Quận 7, TP.HCM','0955 678 901','26/05/2024','🦊')">
+      <div class="pet-img" style="background:#FFF3EC">🦊</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+        <div class="pet-name">Bobby</div>
+        <div class="pet-meta">🦊 Shiba Inu · Đực · 4 tuổi</div>
+        <div class="pet-meta">📍 Quận 7, TP. Hồ Chí Minh</div>
+        <div class="pet-date"><span>📅 26/04/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+        <button class="contact-btn">📞 Liên hệ ngay</button>
+      </div>
+    </div>
+    
+    <div class="pet-card" data-status="adopt" onclick="openPetModal('Bông','Chó mix, cái, 1 tuổi','Quận 10, TP.HCM','0966 789 012','18/05/2024','🐩')">
+      <div class="pet-img" style="background:#E8F7EF">🐩</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-adopt">🟡 Chờ nhận nuôi</span>
+        <div class="pet-name">Bông</div>
+        <div class="pet-meta">🐩 Chó mix · Cái · 1 tuổi</div>
+        <div class="pet-meta">📍 Quận 10, TP. Hồ Chí Minh</div>
+        <div class="pet-date"><span>📅 18/05/2026</span><span style="color:var(--orange);font-weight:700">Nhận nuôi</span></div>
+        <button class="contact-btn" style="background:var(--orange-dark)">🏠 Nhận nuôi</button>
+         </div>
+    </div>
+    
+    <div class="pet-card" data-status="lost" onclick="openPetModal('Coco','Chó Corgi, cái, 2 tuổi','Thủ Đức, TP.HCM','0908 111 222','01/06/2024','🐕‍🦺')">
+      <div class="pet-img" style="background:#FFF3EC">🐕‍🦺</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+        <div class="pet-name">Coco</div>
+        <div class="pet-meta">🐕‍🦺 Corgi · Cái · 2 tuổi</div>
+        <div class="pet-meta">📍 Thủ Đức, TP.HCM</div>
+        <div class="pet-date"><span>📅 12/03/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+        <button class="contact-btn">📞 Liên hệ ngay</button>
+      </div>
+    </div>
+
+<!-- 3 -->
+    <div class="pet-card" data-status="found" onclick="openPetModal('Lucky','Chó Phốc Sóc, đực, 1 tuổi','Phú Nhuận, TP.HCM','0908 333 444','03/06/2024','🐶')">
+      <div class="pet-img" style="background:#E8F7EF">🐶</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-found">🟢 Đã tìm thấy</span>
+        <div class="pet-name">Lucky</div>
+        <div class="pet-meta">🐶 Phốc Sóc · Đực · 1 tuổi</div>
+        <div class="pet-meta">📍 Phú Nhuận, TP.HCM</div>
+        <div class="pet-date"><span>📅 22/05/2026</span><span style="color:var(--green);font-weight:700">Tìm thấy ✓</span></div>
+        <button class="contact-btn" style="background:var(--green)">📞 Liên hệ</button>
+      </div>
+    </div>
+
+<!-- 4 -->
+    <div class="pet-card" data-status="adopt" onclick="openPetModal('Bé Đốm','Chó Mix, cái, 6 tháng','Bình Chánh, TP.HCM','0908 444 555','04/06/2024','🐕')">
+      <div class="pet-img" style="background:#FFF3EC">🐕</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-adopt">🟡 Chờ nhận nuôi</span>
+        <div class="pet-name">Bé Đốm</div>
+        <div class="pet-meta">🐕 Chó Mix · Cái · 6 tháng</div>
+        <div class="pet-meta">📍 Bình Chánh, TP.HCM</div>
+        <div class="pet-date"><span>📅 20/05/2026</span><span style="color:var(--orange);font-weight:700">Nhận nuôi</span></div>
+        <button class="contact-btn" style="background:var(--orange-dark)">🏠 Nhận nuôi</button>
+      </div>
+    </div>
+
+<!-- 5 -->
+    <div class="pet-card" data-status="lost" onclick="openPetModal('Milo','Chó Pug, đực, 2 tuổi','Quận 5, TP.HCM','0908 555 666','05/06/2024','🐶')">
+      <div class="pet-img" style="background:#FDE8D8">🐶</div>
+      <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+        <div class="pet-name">Milo</div>
+        <div class="pet-meta">🐶 Pug · Đực · 2 tuổi</div>
+        <div class="pet-meta">📍 Quận 5, TP.HCM</div>
+        <div class="pet-date"><span>📅 10/05/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+        <button class="contact-btn">📞 Liên hệ ngay</button>
+      </div>
+    </div>
+
+<!-- 6 -->
+    <div class="pet-card" data-status="lost" onclick="openPetModal('Tom','Mèo Ba Tư, đực, 3 tuổi','Quận 11, TP.HCM','0908 666 777','06/06/2024','🐱')">
+      <div class="pet-img" style="background:#E8F7EF">🐱</div>
+      <div class="pet-info">
+      <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+       <div class="pet-name">Tom</div>
+       <div class="pet-meta">🐱 Mèo Ba Tư · Đực · 3 tuổi</div>
+       <div class="pet-meta">📍 Quận 11, TP.HCM</div>
+       <div class="pet-date"><span>📅 27/05/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+        <button class="contact-btn">📞 Liên hệ ngay</button>
+      </div>
+    </div>
+ <!-- 8 -->
+   <div class="pet-card" data-status="found" onclick="openPetModal('Snow','Mèo Anh lông dài, cái, 2 tuổi','Tân Phú, TP.HCM','0908 888 999','08/06/2024','🐱')">
+      <div class="pet-img" style="background:#E8F7EF">🐱</div>
+      <div class="pet-info">
+      <span class="pet-badge badge-found">🟢 Đã tìm thấy</span>
+        <div class="pet-name">Snow</div>
+        <div class="pet-meta">🐱 Anh lông dài · Cái · 2 tuổi</div>
+        <div class="pet-meta">📍 Tân Phú, TP.HCM</div>
+        <div class="pet-date"><span>📅 28/05/2026</span><span style="color:var(--green);font-weight:700">Tìm thấy ✓</span></div>
+        <button class="contact-btn" style="background:var(--green)">📞 Liên hệ</button>
+      </div>
+    </div>
+
+<!-- 9 -->
+    <div class="pet-card" data-status="lost" onclick="openPetModal('Miu','Mèo Xiêm, cái, 1 tuổi','Quận 4, TP.HCM','0909 111 333','09/06/2024','🐈‍⬛')">
+      <div class="pet-img" style="background:#FFF3EC">🐈‍⬛</div>
+      <div class="pet-info">
+      <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+        <div class="pet-name">Miu</div>
+        <div class="pet-meta">🐈‍⬛ Xiêm · Cái · 1 tuổi</div>
+        <div class="pet-meta">📍 Quận 4, TP.HCM</div>
+        <div class="pet-date"><span>📅 26/05/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+        <button class="contact-btn">📞 Liên hệ ngay</button>
+      </div>
+    </div>
+
+<!-- 10 -->
+    <div class="pet-card" data-status="adopt" onclick="openPetModal('Simba','Mèo Bengal, đực, 2 tuổi','Hóc Môn, TP.HCM','0909 222 444','10/06/2024','🐆')">
+      <div class="pet-img" style="background:#FDE8D8">🐆</div>
+      <div class="pet-info">
+      <span class="pet-badge badge-adopt">🟡 Chờ nhận nuôi</span>
+        <div class="pet-name">Simba</div>
+        <div class="pet-meta">🐆 Bengal · Đực · 2 tuổi</div>
+        <div class="pet-meta">📍 Hóc Môn, TP.HCM</div>
+        <div class="pet-date"><span>📅 02/06/2026</span><span style="color:var(--orange);font-weight:700">Nhận nuôi</span></div>
+        <button class="contact-btn" style="background:var(--orange-dark)">🏠 Nhận nuôi</button>
+      </div>
+    </div>
+
+<!-- 11 -->
+     <div class="pet-card" data-status="lost" onclick="openPetModal('Bim','Chó Beagle, đực, 4 tuổi','Nhà Bè, TP.HCM','0910 111 111','11/06/2024','🐕')">
+      <div class="pet-img">🐕</div>
+      <div class="pet-info">
+      <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+        <div class="pet-name">Bim</div>
+        <div class="pet-meta">🐕 Beagle · Đực · 4 tuổi</div>
+        <div class="pet-meta">📍 Quận 5, TP.HCM</div>
+        <div class="pet-date"><span>📅 26/10/2025</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+        <button class="contact-btn">📞 Liên hệ ngay</button>
+      </div>
+    </div>
+
+<!-- 12 -->
+      <div class="pet-card" data-status="found" onclick="openPetModal('Mật','Chó Chihuahua, cái, 2 tuổi','Quận 6, TP.HCM','0910 222 222','12/06/2024','🐶')">
+        <div class="pet-img">🐶</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-found">🟢 Đã tìm thấy</span>
+          <div class="pet-name">Mật</div>
+          <div class="pet-meta">🐶 Chihuahua · Cái · 2 tuổi</div>
+          <div class="pet-meta">📍 Quận 6, TP.HCM</div>
+          <div class="pet-date"><span>📅 26/09/2025</span><span style="color:var(--green);font-weight:700">Tìm thấy ✓</span></div>
+        <button class="contact-btn" style="background:var(--green)">📞 Liên hệ</button>
+         </div>
+       </div>
+
+<!-- 13 -->
+      <div class="pet-card" data-status="adopt" onclick="openPetModal('Sữa','Mèo Scottish Fold, cái, 1 tuổi','Củ Chi, TP.HCM','0910 333 333','13/06/2024','🐱')">
+        <div class="pet-img">🐱</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-adopt">🟡 Chờ nhận nuôi</span>
+          <div class="pet-name">Sữa</div>
+          <div class="pet-meta">🐱 Scottish Fold · Cái · 1 tuổi</div>
+          <div class="pet-meta">📍 Củ Chi, TP.HCM</div>
+          <div class="pet-date"><span>📅 28/12/2025</span><span style="color:var(--orange);font-weight:700">Nhận nuôi</span></div>
+          <button class="contact-btn" style="background:var(--orange-dark)">🏠 Nhận nuôi</button>
+        </div>
+      </div>
+
+<!-- 14 -->
+      <div class="pet-card" data-status="lost" onclick="openPetModal('Rocky','Chó Labrador, đực, 5 tuổi','Quận 2, TP.HCM','0910 444 444','14/06/2024','🐕‍🦺')">
+        <div class="pet-img">🐕‍🦺</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+          <div class="pet-name">Rocky</div>
+          <div class="pet-meta">🐕‍🦺 Labrador · Đực · 5 tuổi</div>
+          <div class="pet-meta">📍 Quận 2, TP.HCM</div>
+          <div class="pet-date"><span>📅 26/04/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+          <button class="contact-btn">📞 Liên hệ ngay</button>
+        </div>
+      </div>
+
+<!-- 15 -->
+      <div class="pet-card" data-status="found" onclick="openPetModal('Đen','Mèo mun, đực, 2 tuổi','Quận 9, TP.HCM','0910 555 555','15/06/2024','🐈‍⬛')">
+        <div class="pet-img">🐈‍⬛</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-found">🟢 Đã tìm thấy</span>
+         <div class="pet-name">Đen</div>
+         <div class="pet-meta">🐈‍⬛ Mèo mun · Đực · 2 tuổi</div>
+         <div class="pet-meta">📍 Quận 9, TP.HCM</div>
+         <div class="pet-date"><span>📅 25/01/2026</span><span style="color:var(--green);font-weight:700">Tìm thấy ✓</span></div>
+        <button class="contact-btn" style="background:var(--green)">📞 Liên hệ</button>
+        </div>
+      </div>
+
+<!-- 16 -->
+      <div class="pet-card" data-status="adopt" onclick="openPetModal('Misa','Mèo Nga xanh, cái, 3 tuổi','Quận 10, TP.HCM','0910 666 666','16/06/2024','🐱')">
+        <div class="pet-img">🐱</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-adopt">🟡 Chờ nhận nuôi</span>
+          <div class="pet-name">Misa</div>
+          <div class="pet-meta">🐱 Nga xanh · Cái · 3 tuổi</div>
+          <div class="pet-meta">📍 Quận 10, TP.HCM</div>
+          <div class="pet-date"><span>📅 20/05/2026</span><span style="color:var(--orange);font-weight:700">Nhận nuôi</span></div>
+          <button class="contact-btn" style="background:var(--orange-dark)">🏠 Nhận nuôi</button>
+        </div>
+      </div>
+
+<!-- 17 -->
+      <div class="pet-card" data-status="lost" onclick="openPetModal('Béo','Chó Alaska, đực, 3 tuổi','Quận 1, TP.HCM','0910 777 777','17/06/2024','🐺')">
+        <div class="pet-img">🐺</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+          <div class="pet-name">Béo</div>
+          <div class="pet-meta">🐺 Alaska · Đực · 3 tuổi</div>
+          <div class="pet-meta">📍 Quận 1, TP.HCM</div>
+          <div class="pet-date"><span>📅 26/02/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+          <button class="contact-btn">📞 Liên hệ ngay</button>
+        </div>
+       </div>
+
+<!-- 18 -->
+      <div class="pet-card" data-status="found" onclick="openPetModal('Kem','Mèo Anh lông ngắn, cái, 2 tuổi','Quận 3, TP.HCM','0910 888 888','18/06/2024','🐱')">
+         <div class="pet-img">🐱</div>
+         <div class="pet-info">
+         <span class="pet-badge badge-found">🟢 Đã tìm thấy</span>
+           <div class="pet-name">Kem</div>
+           <div class="pet-meta">🐱 Anh lông ngắn · Cái · 2 tuổi</div>
+           <div class="pet-meta">📍 Quận 3, TP.HCM</div>
+           <div class="pet-date"><span>📅 30/05/2026</span><span style="color:var(--green);font-weight:700">Tìm thấy ✓</span></div>
+           <button class="contact-btn" style="background:var(--green)">📞 Liên hệ</button>
+         </div>
+      </div>
+
+<!-- 19 -->
+      <div class="pet-card" data-status="adopt" onclick="openPetModal('Tiger','Mèo mướp, đực, 1 tuổi','Bình Tân, TP.HCM','0911 111 111','19/06/2024','🐈')">
+        <div class="pet-img">🐈</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-adopt">🟡 Chờ nhận nuôi</span>
+          <div class="pet-name">Tiger</div>
+          <div class="pet-meta">🐈 Mèo mướp · Đực · 1 tuổi</div>
+          <div class="pet-meta">📍 Bình Tân, TP.HCM</div>
+          <div class="pet-date"><span>📅 20/05/2026</span><span style="color:var(--orange);font-weight:700">Nhận nuôi</span></div>
+          <button class="contact-btn" style="background:var(--orange-dark)">🏠 Nhận nuôi</button>
+        </div>
+      </div>
+      
+      <div class="pet-card" data-status="lost" onclick="openPetModal('Bunny','Thỏ Holland Lop, cái, 1 tuổi','Quận 7, TP.HCM','0901 111 111','22/06/2024','🐰')">
+        <div class="pet-img">🐰</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+           <div class="pet-name">Bunny</div>
+           <div class="pet-meta">🐰 Holland Lop · Cái · 1 tuổi</div>
+           <div class="pet-meta">📍 Quận 7, TP.HCM</div>
+           <div class="pet-date"><span>📅 26/03/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+           <button class="contact-btn">📞 Liên hệ ngay</button>
+        </div>
+      </div>
+
+<!-- Thỏ 2 -->
+      <div class="pet-card" data-status="found" onclick="openPetModal('Snow','Thỏ Mini Rex, đực, 2 tuổi','Thủ Đức, TP.HCM','0902 222 222','23/06/2024','🐰')">
+        <div class="pet-img">🐰</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-found">🟢 Đã tìm thấy</span>
+          <div class="pet-name">Snow</div>
+          <div class="pet-meta">🐰 Mini Rex · Đực · 2 tuổi</div>
+          <div class="pet-meta">📍 Thủ Đức, TP.HCM</div>
+          <div class="pet-date"><span>📅 25/04/2026</span><span style="color:var(--green);font-weight:700">Tìm thấy ✓</span></div>
+          <button class="contact-btn" style="background:var(--green)">📞 Liên hệ</button> 
+        </div>
+      </div>
+
+<!-- Thỏ 3 -->
+      <div class="pet-card" data-status="lost" onclick="openPetModal('Mochi','Thỏ Lionhead, cái, 8 tháng','Biên Hòa, Đồng Nai','0903 333 333','24/06/2024','🐰')">
+        <div class="pet-img">🐰</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+          <div class="pet-name">Mochi</div>
+          <div class="pet-meta">🐰 Lionhead · Cái · 8 tháng</div>
+          <div class="pet-meta">📍 Quận 4, TP.HCM</div>
+          <div class="pet-date"><span>📅 26/05/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+          <button class="contact-btn">📞 Liên hệ ngay</button>
+        </div>
+      </div>
+
+<!-- Thỏ 4 -->
+      <div class="pet-card" data-status="found" onclick="openPetModal('Carrot','Thỏ Netherland Dwarf, đực, 1 tuổi','Dĩ An, Bình Dương','0904 444 444','25/06/2024','🐰')">
+        <div class="pet-img">🐰</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-found">🟢 Đã tìm thấy</span>
+          <div class="pet-name">Carrot</div>
+          <div class="pet-meta">🐰 tý · Đực · 1 tuổi</div>
+          <div class="pet-meta">📍 Quận 2 ,TP.HCM</div>
+          <div class="pet-date"><span>📅 25/05/2026</span><span style="color:var(--green);font-weight:700">Tìm thấy ✓</span></div>
+          <button class="contact-btn" style="background:var(--green)">📞 Liên hệ</button>
+        </div>
+      </div>
+<!-- 20 -->
+      <div class="pet-card" data-status="lost" onclick="openPetModal('Ben','Chó Samoyed, đực, 2 tuổi','Bình Thạnh, TP.HCM','0911 222 222','20/06/2024','🐕')">
+        <div class="pet-img">🐕</div>
+        <div class="pet-info">
+        <span class="pet-badge badge-lost">🔴 Đang thất lạc</span>
+          <div class="pet-name">Ben</div>
+          <div class="pet-meta">🐕 Samoyed · Đực · 2 tuổi</div>
+          <div class="pet-meta">📍 Bình Thạnh, TP.HCM</div>
+          <div class="pet-date"><span>📅 26/05/2026</span><span style="color:var(--red);font-weight:700">Mất tích</span></div>
+        <button class="contact-btn">📞 Liên hệ ngay</button>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MAP SECTION -->
+<section class="map-section" id="map">
+  <div class="section-header">
+    <h2 class="section-title">Bản đồ <span>thú cưng đi lạc</span></h2>
+    <a href="#" class="see-all">📍 Xem toàn bộ →</a>
+  </div>
+  <p style="color:var(--text-muted);margin-bottom:20px;font-size:0.95rem;">Nhấn vào điểm đánh dấu để xem thông tin chi tiết. Bản đồ hiển thị các vị trí báo cáo gần nhất.</p>
+  <div class="map-controls">
+    <button class="map-filter-btn active" onclick="mapFilter(this,'all')">🐾 Tất cả</button>
+    <button class="map-filter-btn" onclick="mapFilter(this,'lost')">🔴 Đang thất lạc</button>
+    <button class="map-filter-btn" onclick="mapFilter(this,'found')">🟢 Đã tìm thấy</button>
+    <button class="map-filter-btn" onclick="mapFilter(this,'adopt')">🟡 Nhận nuôi</button>
+    <span class="map-info" id="mapCount">Đang hiển thị 8 địa điểm</span>
+  </div>
+  <div class="map-wrapper">
+    <div id="leafletMap"></div>
+    <div class="map-legend">
+      <h4>Chú thích</h4>
+      <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div> Đang thất lạc</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#3DAB6E"></div> Đã tìm thấy</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#F5823A"></div> Chờ nhận nuôi</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section">
+  <div style="text-align:center">
+    <h2 class="section-title">Cách <span>thức hoạt động</span></h2>
+    <p style="color:var(--text-muted);margin-top:8px">Chỉ 3 bước đơn giản để tìm lại thú cưng</p>
+  </div>
+  <div class="how-grid">
+    <div class="step-card"><div class="step-num">1</div><div class="step-icon">📝</div><div class="step-title">Đăng tin</div><div class="step-desc">Điền thông tin và tải ảnh thú cưng đi lạc hoặc nhặt được lên hệ thống.</div></div>
+    <div class="step-card"><div class="step-num">2</div><div class="step-icon">🔍</div><div class="step-title">Tìm kiếm & So khớp</div><div class="step-desc">Hệ thống tự động so khớp ảnh và thông báo đến các thành viên gần bạn.</div></div>
+    <div class="step-card"><div class="step-num">3</div><div class="step-icon">📞</div><div class="step-title">Kết nối trực tiếp</div><div class="step-desc">Liên lạc trực tiếp qua Zalo hoặc số điện thoại để xác nhận và đón về.</div></div>
+    <div class="step-card"><div class="step-num">4</div><div class="step-icon">🎉</div><div class="step-title">Đoàn tụ!</div><div class="step-desc">Thú cưng trở về nhà, chia sẻ câu chuyện để truyền cảm hứng cộng đồng.</div></div>
+  </div>
+</section>
+
+<!-- FORM -->
+<section class="form-section" id="form">
+  <div class="form-container">
+    <h2 class="section-title" style="margin-bottom:6px">Đăng tin <span>của bạn</span></h2>
+    <p style="color:var(--text-muted);margin-bottom:24px">Giúp cộng đồng tìm kiếm thú cưng nhanh hơn</p>
+    <div class="form-tabs">
+      <button class="form-tab active" onclick="switchFormTab(this,'lost')">📢 Thú cưng thất lạc</button>
+      <button class="form-tab" onclick="switchFormTab(this,'found')">🐾 Thú cưng nhặt được</button>
+      <button class="form-tab" onclick="switchFormTab(this,'adopt')">🏠 Cho nhận nuôi</button>
+    </div>
+    <input type="hidden" id="activeFormType" value="lost"/>
+    <div class="form-grid">
+      <div class="form-group"><label>Tên thú cưng <span>*</span></label><input type="text" id="fName" class="form-control" placeholder="VD: Mochi, Kitty..."/></div>
+      <div class="form-group"><label>Loại thú <span>*</span></label><select id="fType" class="form-control"><option value="">Chọn loại</option><option value="chó">🐶 Chó</option><option value="mèo">🐱 Mèo</option><option value="thỏ">🐰 Thỏ</option><option value="khác">Khác</option></select></div>
+      <div class="form-group"><label>Giống</label><input type="text" id="fBreed" class="form-control" placeholder="VD: Poodle, Mèo Anh..."/></div>
+      <div class="form-group"><label>Giới tính</label><select id="fGender" class="form-control"><option value="">Chọn giới tính</option><option value="Đực">Đực</option><option value="Cái">Cái</option></select></div>
+      <div class="form-group"><label>Ngày thất lạc <span>*</span></label><input type="date" id="fDate" class="form-control"/></div>
+      <div class="form-group"><label>Khu vực <span>*</span></label><select id="fArea" class="form-control"><option value="">Chọn khu vực</option><option>TP. Hồ Chí Minh</option><option>Quận 1</option><option>Quận 3</option><option>Quận 4</option><option>Quận 5</option><option>Quận 6</option><option>Quận 7</option><option>Quận 8</option><option>Quận 10</option><option>Quận 11</option><option>Quận 12</option><option>Bình Thạnh</option><option>Gò Vấp</option><option>Tân Bình</option><option>Tân Phú</option><option>Phú Nhuận</option><option>Bình Tân</option><option>Thủ Đức</option><option>Hà Nội</option><option>Đà Nẵng</option><option>Bình Dương</option></select></div>
+      <div class="form-group full"><label>Địa điểm cụ thể <span>*</span></label><input type="text" id="fLocation" class="form-control" placeholder="VD: Công viên Lê Thị Riêng, Quận 10..."/></div>
+      <div class="form-group full"><label>Mô tả đặc điểm nhận dạng</label><textarea id="fDesc" class="form-control" placeholder="Màu lông, vòng cổ, vết thương, đặc điểm nổi bật..."></textarea></div>
+      <div class="form-group"><label>Số điện thoại <span>*</span></label><input type="tel" id="fPhone" class="form-control" placeholder="0901 234 567"/></div>
+      <div class="form-group"><label>Zalo / Facebook</label><input type="text" id="fZalo" class="form-control" placeholder="Link hoặc SĐT Zalo"/></div>
+      <div class="form-group full"><label>Ảnh thú cưng</label>
+        <div class="upload-area" onclick="document.getElementById('fImageInput').click()"><div class="upload-icon">📷</div><div class="upload-text"><strong>Nhấn để tải ảnh</strong> hoặc kéo thả vào đây<br><span style="font-size:0.8rem">PNG, JPG tối đa 5MB (tối đa 5 ảnh)</span></div></div>
+        <input type="file" id="fImageInput" accept="image/*" multiple style="display:none" onchange="previewImages(this)"/>
+        <div id="fImagePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+      </div>
+      <div id="formError" style="display:none;grid-column:1/-1;background:var(--red-light);color:var(--red);padding:10px 14px;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700"></div>
+      <div class="form-group full"><button class="submit-btn" onclick="checkAuthBeforePost(event)">🚀 Đăng tin ngay</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- STORIES -->
+<section class="stories-section">
+  <div style="text-align:center">
+    <h2 class="section-title">Câu chuyện <span>đoàn tụ</span> 🎉</h2>
+    <p style="color:var(--text-muted);margin-top:8px">Những khoảnh khắc hạnh phúc nhờ cộng đồng PetFinder</p>
+  </div>
+  <div class="stories-grid">
+    <div class="story-card"><div class="story-header"><div class="story-avatar">👩</div><div class="story-user"><strong>Nguyễn Thị Mai</strong><span>TP. Hồ Chí Minh</span></div></div><div class="story-text">"Mochi đi lạc 3 ngày, nhờ PetFinder mà chỉ sau 6 tiếng đăng tin đã có người nhắn tin. Cảm ơn cộng đồng rất nhiều!"</div><div class="story-stars">⭐⭐⭐⭐⭐</div></div>
+    <div class="story-card"><div class="story-header"><div class="story-avatar">👨</div><div class="story-user"><strong>Trần Minh Tuấn</strong><span>Hà Nội</span></div></div><div class="story-text">"Nhặt được con mèo ốm ngoài đường, đăng lên PetFinder và 2 ngày sau người nuôi đã liên hệ. Vui lắm!"</div><div class="story-stars">⭐⭐⭐⭐⭐</div></div>
+    <div class="story-card"><div class="story-header"><div class="story-avatar">👩‍🦱</div><div class="story-user"><strong>Phạm Thu Hương</strong><span>Đà Nẵng</span></div></div><div class="story-text">"Nhận nuôi được bé Bông qua PetFinder. Giờ bé là thành viên đáng yêu nhất nhà tôi rồi! 🐾"</div><div class="story-stars">⭐⭐⭐⭐⭐</div></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer id="contact">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="footer-logo">🐾 PetFinder</div>
+      <p>Kết nối cộng đồng yêu thú cưng, giúp những người bạn nhỏ tìm lại được ngôi nhà thân yêu.</p>
+      <div class="footer-socials">
+        <a class="social-btn" href="#">f</a><a class="social-btn" href="#">Z</a>
+        <a class="social-btn" href="#">📷</a><a class="social-btn" href="#">▶</a>
+      </div>
+    </div>
+    <div class="footer-col"><h4>Dịch vụ</h4><ul><li><a href="#">Đăng tin thất lạc</a></li><li><a href="#">Đăng tin nhặt được</a></li><li><a href="#">Cho nhận nuôi</a></li><li><a href="#">Tìm kiếm nâng cao</a></li></ul></div>
+    <div class="footer-col"><h4>Cộng đồng</h4><ul><li><a href="#">Diễn đàn</a></li><li><a href="#">Tin tức thú cưng</a></li><li><a href="#">Chia sẻ câu chuyện</a></li><li><a href="#">Tình nguyện viên</a></li></ul></div>
+    <div class="footer-col"><h4>Liên hệ</h4><ul><li><a href="#">📧 petfinder@email.com</a></li><li><a href="#">📞 1800 xxxx</a></li><li><a href="#">📍 TP. Hồ Chí Minh</a></li><li><a href="#">Chính sách bảo mật</a></li></ul></div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2024 PetFinder. Bảo lưu mọi quyền.</span>
+    <span>Được xây dựng với 🧡 cho cộng đồng yêu thú cưng Việt Nam</span>
+  </div>
+</footer>
+
+<!-- ========== PET DETAIL MODAL ========== -->
+<div class="modal-overlay" id="petModal" onclick="closeOnBackdrop(event,'petModal')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('petModal')">✕</button>
+    <h3 id="modalTitle" style="font-family:'Baloo 2',cursive;font-size:1.3rem;margin-bottom:16px">Chi tiết thú cưng</h3>
+    <div class="modal-pet-info">
+      <div class="modal-pet-img" id="modalIcon"></div>
+      <div>
+        <div class="modal-detail"><strong>Giống:</strong> <span id="modalBreed"></span></div>
+        <div class="modal-detail"><strong>Khu vực:</strong> <span id="modalArea"></span></div>
+        <div class="modal-detail"><strong>Ngày đăng:</strong> <span id="modalDate"></span></div>
+      </div>
+    </div>
+    <div class="modal-contact-row">
+      <a href="#" class="btn-zalo" id="modalZalo">💬 Nhắn Zalo</a>
+      <a href="#" class="btn-call" id="modalCall">📞 Gọi ngay</a>
+    </div>
+  </div>
+</div>
+
+<!-- ========== LOGIN MODAL ========== -->
+<div class="modal-overlay" id="loginModal" onclick="closeOnBackdrop(event,'loginModal')">
+  <div class="modal auth-modal">
+    <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
+    <div class="auth-logo">🐾</div>
+    <div class="auth-title">Chào mừng trở lại!</div>
+    <div class="auth-sub">Đăng nhập để đăng tin và kết nối cộng đồng</div>
+
+    <div id="loginForm" class="auth-form">
+      <div class="auth-field">
+        <label>Email hoặc số điện thoại</label>
+        <input class="auth-input" id="loginEmail" type="text" placeholder="example@email.com hoặc 0901..."/>
+      </div>
+      <div class="auth-field">
+        <label>Mật khẩu</label>
+        <div class="auth-input-wrap">
+          <input class="auth-input" id="loginPw" type="password" placeholder="Nhập mật khẩu..."/>
+          <button class="toggle-pw" type="button" onclick="togglePw('loginPw',this)">👁️</button>
+        </div>
+        <div class="auth-forgot"><a onclick="alert('Tính năng đặt lại mật khẩu sẽ gửi email xác nhận đến địa chỉ của bạn.')">Quên mật khẩu?</a></div>
+      </div>
+      <div id="loginError" style="display:none;background:var(--red-light);color:var(--red);padding:10px 14px;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700"></div>
+      <button class="auth-btn" onclick="doLogin()">🚀 Đăng nhập</button>
+      <div class="auth-divider">hoặc</div>
+      <div class="auth-social">
+        <button class="auth-social-btn" onclick="socialLogin('Google')"><span style="font-size:1.1rem">G</span> Google</button>
+        <button class="auth-social-btn" onclick="socialLogin('Facebook')"><span style="font-size:1.1rem;color:#1877F2">f</span> Facebook</button>
+        <button class="auth-social-btn" onclick="socialLogin('Zalo')"><span style="font-size:1.1rem;color:#006AF5">Z</span> Zalo</button>
+      </div>
+      <div class="auth-switch">Chưa có tài khoản? <a onclick="switchAuth('register')">Đăng ký ngay</a></div>
+    </div>
+
+    <div id="loginSuccess" class="auth-success">
+      <div class="auth-success-icon">🎉</div>
+      <h3>Đăng nhập thành công!</h3>
+      <p>Chào mừng bạn trở lại với cộng đồng PetFinder 🐾</p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== REGISTER MODAL ========== -->
+<div class="modal-overlay" id="registerModal" onclick="closeOnBackdrop(event,'registerModal')">
+  <div class="modal auth-modal">
+    <button class="modal-close" onclick="closeModal('registerModal')">✕</button>
+    <div class="auth-logo">🐶🐱</div>
+    <div class="auth-title">Tạo tài khoản mới</div>
+    <div class="auth-sub">Tham gia cộng đồng PetFinder – hoàn toàn miễn phí!</div>
+
+    <div id="registerForm" class="auth-form">
+      <div class="auth-row-2">
+        <div class="auth-field">
+          <label>Họ <span style="color:var(--red)">*</span></label>
+          <input class="auth-input" id="regHo" type="text" placeholder="Nguyễn"/>
+        </div>
+        <div class="auth-field">
+          <label>Tên <span style="color:var(--red)">*</span></label>
+          <input class="auth-input" id="regTen" type="text" placeholder="Văn A"/>
+        </div>
+      </div>
+      <div class="auth-field">
+        <label>Email <span style="color:var(--red)">*</span></label>
+        <input class="auth-input" id="regEmail" type="email" placeholder="example@email.com"/>
+      </div>
+      <div class="auth-field">
+        <label>Số điện thoại <span style="color:var(--red)">*</span></label>
+        <input class="auth-input" id="regPhone" type="tel" placeholder="0901 234 567"/>
+      </div>
+      <div class="auth-field">
+        <label>Quận / Thành phố</label>
+        <select class="auth-input" id="regCity">
+          <option value="">Chọn khu vực của bạn</option>
+          <option>TP. Hồ Chí Minh</option>
+          <option>Quận 1, 3, 4</option>
+          <option>Quận 6, Quận 8, Quận 11</option>
+          <option>Quận Tân Bình, Quận Tân Phú, Quận Bình Tân</option>
+          <option>Quận Bình Thạnh, Quận Gò Vấp, Quận Phú Nhuận</option>
+          <option>Thành phố Thủ Đức</option>
+          <option>Quận 12</option> 
+        </select>
+      </div>
+      <div class="auth-field">
+        <label>Mật khẩu <span style="color:var(--red)">*</span></label>
+        <div class="auth-input-wrap">
+          <input class="auth-input" id="regPw" type="password" placeholder="Ít nhất 8 ký tự..." oninput="checkPwStrength(this.value)"/>
+          <button class="toggle-pw" type="button" onclick="togglePw('regPw',this)">👁️</button>
+        </div>
+        <div class="pw-strength"><div class="pw-strength-bar" id="pwBar"></div></div>
+        <div class="pw-hint" id="pwHint">Nhập mật khẩu để kiểm tra độ mạnh</div>
+      </div>
+      <div class="auth-field">
+        <label>Xác nhận mật khẩu <span style="color:var(--red)">*</span></label>
+        <div class="auth-input-wrap">
+          <input class="auth-input" id="regPw2" type="password" placeholder="Nhập lại mật khẩu..."/>
+          <button class="toggle-pw" type="button" onclick="togglePw('regPw2',this)">👁️</button>
+        </div>
+      </div>
+      <div id="regError" style="display:none;background:var(--red-light);color:var(--red);padding:10px 14px;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700"></div>
+      <button class="auth-btn" onclick="doRegister()">✨ Tạo tài khoản</button>
+      <div class="auth-terms">Bằng cách đăng ký, bạn đồng ý với <a href="#">Điều khoản dịch vụ</a> và <a href="#">Chính sách bảo mật</a> của PetFinder.</div>
+      <div class="auth-switch">Đã có tài khoản? <a onclick="switchAuth('login')">Đăng nhập</a></div>
+    </div>
+
+    <div id="registerSuccess" class="auth-success">
+      <div class="auth-success-icon">🎊</div>
+      <h3>Đăng ký thành công!</h3>
+      <p>Chào mừng bạn đến với cộng đồng PetFinder! Hãy bắt đầu bằng cách đăng tin thú cưng của bạn 🐾</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ========== STORAGE HELPERS ==========
+function loadPets() {
+  try { return JSON.parse(localStorage.getItem('pf_pets') || '[]'); } catch(e) { return []; }
+}
+function savePets(arr) {
+  localStorage.setItem('pf_pets', JSON.stringify(arr));
+}
+function loadFavs() {
+  try { return JSON.parse(localStorage.getItem('pf_favs') || '[]'); } catch(e) { return []; }
+}
+function saveFavs(arr) {
+  localStorage.setItem('pf_favs', JSON.stringify(arr));
+}
+function loadUsers() {
+  try { return JSON.parse(localStorage.getItem('pf_users') || '[]'); } catch(e) { return []; }
+}
+function saveUsers(arr) {
+  localStorage.setItem('pf_users', JSON.stringify(arr));
+}
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem('pf_session') || 'null'); } catch(e) { return null; }
+}
+function saveSession(user) {
+  localStorage.setItem('pf_session', user ? JSON.stringify(user) : 'null');
+}
+
+// ========== TOAST ==========
+function showToast(msg, duration = 2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// ========== AUTH STATE ==========
+let currentUser = loadSession();
+
+function openAuthModal(type) {
+  document.getElementById(type + 'Modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeOnBackdrop(e, id) {
+  if (e.target.id === id) closeModal(id);
+}
+function switchAuth(type) {
+  closeModal(type === 'login' ? 'registerModal' : 'loginModal');
+  setTimeout(() => openAuthModal(type), 120);
+}
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁️' : '🙈';
+}
+function checkPwStrength(v) {
+  const bar = document.getElementById('pwBar');
+  const hint = document.getElementById('pwHint');
+  let score = 0;
+  if (v.length >= 8) score++;
+  if (/[A-Z]/.test(v)) score++;
+  if (/[0-9]/.test(v)) score++;
+  if (/[^A-Za-z0-9]/.test(v)) score++;
+  const colors = ['#E24B4A','#F5823A','#EFC94C','#3DAB6E'];
+  const labels = ['Rất yếu','Yếu','Trung bình','Mạnh'];
+  bar.style.width = (score * 25) + '%';
+  bar.style.background = colors[score - 1] || '#E2E8F0';
+  hint.textContent = score > 0 ? 'Độ mạnh: ' + (labels[score - 1] || '') : 'Nhập mật khẩu để kiểm tra độ mạnh';
+  hint.style.color = colors[score - 1] || 'var(--text-muted)';
+}
+function socialLogin(provider) {
+  const name = prompt('Đây là demo. Nhập tên hiển thị của bạn:');
+  if (name) loginSuccess({ name, avatar: provider === 'Google' ? '📧' : provider === 'Facebook' ? '📘' : '💬', email: name.toLowerCase().replace(/\s/g,'') + '@social.com' });
+}
+function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  const err = document.getElementById('loginError');
+  err.style.display = 'none';
+  if (!email || !pw) { err.textContent = '⚠️ Vui lòng điền đầy đủ thông tin.'; err.style.display = 'block'; return; }
+  if (pw.length < 6) { err.textContent = '⚠️ Mật khẩu phải có ít nhất 6 ký tự.'; err.style.display = 'block'; return; }
+  const users = loadUsers();
+  const found = users.find(u => (u.email === email || u.phone === email) && u.pw === pw);
+  if (!found) {
+    // Allow demo login with any credentials
+    const name = email.split('@')[0];
+    const user = { name, avatar: '👤', email, phone: '' };
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('loginSuccess').style.display = 'block';
+    setTimeout(() => { closeModal('loginModal'); loginSuccess(user); document.getElementById('loginForm').style.display = 'flex'; document.getElementById('loginSuccess').style.display = 'none'; }, 1400);
+  } else {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('loginSuccess').style.display = 'block';
+    setTimeout(() => { closeModal('loginModal'); loginSuccess(found); document.getElementById('loginForm').style.display = 'flex'; document.getElementById('loginSuccess').style.display = 'none'; }, 1400);
+  }
+}
+function doRegister() {
+  const ho = document.getElementById('regHo').value.trim();
+  const ten = document.getElementById('regTen').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const phone = document.getElementById('regPhone').value.trim();
+  const pw = document.getElementById('regPw').value;
+  const pw2 = document.getElementById('regPw2').value;
+  const err = document.getElementById('regError');
+  err.style.display = 'none';
+  if (!ho || !ten || !email || !phone || !pw || !pw2) { err.textContent = '⚠️ Vui lòng điền đầy đủ các trường bắt buộc (*).'; err.style.display = 'block'; return; }
+  if (!email.includes('@')) { err.textContent = '⚠️ Địa chỉ email không hợp lệ.'; err.style.display = 'block'; return; }
+  if (pw.length < 8) { err.textContent = '⚠️ Mật khẩu phải có ít nhất 8 ký tự.'; err.style.display = 'block'; return; }
+  if (pw !== pw2) { err.textContent = '⚠️ Mật khẩu xác nhận không khớp.'; err.style.display = 'block'; return; }
+  const users = loadUsers();
+  if (users.find(u => u.email === email)) { err.textContent = '⚠️ Email này đã được đăng ký.'; err.style.display = 'block'; return; }
+  const user = { name: ho + ' ' + ten, avatar: '👤', email, phone, pw };
+  users.push(user);
+  saveUsers(users);
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('registerSuccess').style.display = 'block';
+  setTimeout(() => { closeModal('registerModal'); loginSuccess(user); document.getElementById('registerForm').style.display = 'flex'; document.getElementById('registerSuccess').style.display = 'none'; }, 1600);
+}
+function loginSuccess(user) {
+  currentUser = user;
+  saveSession(user);
+  document.getElementById('navAuth').style.display = 'none';
+  const nu = document.getElementById('navUser');
+  nu.style.display = 'flex';
+  document.getElementById('navUsername').textContent = user.name;
+  document.getElementById('navAvatar').textContent = user.avatar;
+  updateFavButtons();
+  showToast('🎉 Chào mừng ' + user.name + '!');
+}
+function logout() {
+  currentUser = null;
+  saveSession(null);
+  document.getElementById('navAuth').style.display = 'flex';
+  document.getElementById('navUser').style.display = 'none';
+  document.getElementById('myPostsPanel').classList.remove('open');
+  updateFavButtons();
+  showToast('👋 Đã đăng xuất');
+}
+
+// ========== MY POSTS PANEL ==========
+function openMyPosts() {
+  renderMyPosts();
+  document.getElementById('myPostsPanel').classList.add('open');
+}
+function closeMyPosts() {
+  document.getElementById('myPostsPanel').classList.remove('open');
+}
+function renderMyPosts() {
+  if (!currentUser) return;
+  const pets = loadPets().filter(p => p.ownerEmail === currentUser.email);
+  const favIds = loadFavs();
+  const el = document.getElementById('myPostsList');
+  if (pets.length === 0) {
+    el.innerHTML = '<div class="empty-panel"><div>📭</div><p>Bạn chưa đăng tin nào.<br>Hãy đăng tin để cộng đồng cùng giúp!</p></div>';
+    return;
+  }
+  el.innerHTML = pets.map(p => `
+    <div class="mini-card">
+      <div class="mini-icon">${p.icon}</div>
+      <div class="mini-info">
+        <div class="mini-name">${p.name}</div>
+        <div class="mini-meta">${p.location || p.area} · ${statusLabelMap[p.status]}</div>
+        <div class="mini-meta">📅 ${p.date}</div>
+      </div>
+      <button class="mini-delete" onclick="deleteMyPost('${p.id}')">🗑️ Xóa</button>
+    </div>
+  `).join('');
+}
+function deleteMyPost(id) {
+  if (!confirm('Bạn có chắc muốn xóa tin này không?')) return;
+  let pets = loadPets();
+  pets = pets.filter(p => p.id !== id);
+  savePets(pets);
+  // Remove from DOM
+  const card = document.querySelector(`.pet-card[data-id="${id}"]`);
+  if (card) card.remove();
+  renderMyPosts();
+  updateStats();
+  showToast('🗑️ Đã xóa tin');
+}
+
+// ========== FAVORITE ==========
+function toggleFav(petId, btn, event) {
+  event.stopPropagation();
+  if (!currentUser) { showToast('⚠️ Đăng nhập để lưu yêu thích'); openAuthModal('login'); return; }
+  let favs = loadFavs();
+  if (favs.includes(petId)) {
+    favs = favs.filter(f => f !== petId);
+    btn.textContent = '🤍';
+    btn.classList.remove('active');
+    showToast('💔 Đã bỏ yêu thích');
+  } else {
+    favs.push(petId);
+    btn.textContent = '❤️';
+    btn.classList.add('active');
+    showToast('❤️ Đã lưu vào yêu thích!');
+  }
+  saveFavs(favs);
+}
+function updateFavButtons() {
+  const favs = loadFavs();
+  document.querySelectorAll('.fav-btn').forEach(btn => {
+    const id = btn.dataset.id;
+    if (favs.includes(id)) { btn.textContent = '❤️'; btn.classList.add('active'); }
+    else { btn.textContent = '🤍'; btn.classList.remove('active'); }
+  });
+}
+
+// ========== IMAGE PREVIEW ==========
+function previewImages(input) {
+  const container = document.getElementById('fImagePreview');
+  container.innerHTML = '';
+  const files = Array.from(input.files).slice(0, 5);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.className = 'img-preview-item';
+      container.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ========== FORM SUBMIT — SAVE TO LOCALSTORAGE ==========
+const statusLabelMap = { lost: 'Đang thất lạc', found: 'Đã tìm thấy', adopt: 'Chờ nhận nuôi' };
+const typeIconMap = { 'chó': '🐶', 'mèo': '🐱', 'thỏ': '🐰', 'khác': '🐾', '': '🐾' };
+
+function checkAuthBeforePost(e) {
+  e.preventDefault();
+  if (!currentUser) { showToast('⚠️ Vui lòng đăng nhập để đăng tin!'); openAuthModal('login'); return; }
+  submitPost();
+}
+function submitPost() {
+  const name = document.getElementById('fName').value.trim();
+  const type = document.getElementById('fType').value;
+  const breed = document.getElementById('fBreed').value.trim();
+  const gender = document.getElementById('fGender').value;
+  const date = document.getElementById('fDate').value;
+  const area = document.getElementById('fArea').value;
+  const location = document.getElementById('fLocation').value.trim();
+  const desc = document.getElementById('fDesc').value.trim();
+  const phone = document.getElementById('fPhone').value.trim();
+  const zalo = document.getElementById('fZalo').value.trim();
+  const status = document.getElementById('activeFormType').value;
+  const err = document.getElementById('formError');
+  err.style.display = 'none';
+
+  if (!name || !type || !date || !area || !phone) {
+    err.textContent = '⚠️ Vui lòng điền đầy đủ các trường bắt buộc (*)';
+    err.style.display = 'block';
+    return;
+  }
+  const icon = typeIconMap[type.toLowerCase()] || '🐾';
+  const displayDate = new Date(date).toLocaleDateString('vi-VN');
+  const id = 'pet_' + Date.now();
+  const pet = { id, name, type, breed, gender, date: displayDate, area, location, desc, phone, zalo, status, icon, ownerEmail: currentUser.email, ownerName: currentUser.name, createdAt: Date.now() };
+
+  const pets = loadPets();
+  pets.unshift(pet);
+  savePets(pets);
+
+  // Add card to DOM immediately
+  addPetCardToGrid(pet, true);
+  updateStats();
+  resetForm();
+  showToast('✅ Đăng tin thành công! Cộng đồng đã nhận được.');
+  document.querySelector('#pets').scrollIntoView({ behavior: 'smooth' });
+}
+function resetForm() {
+  ['fName','fBreed','fLocation','fDesc','fPhone','fZalo'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  ['fType','fGender','fArea','fDate'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('fImagePreview').innerHTML = '';
+  document.getElementById('formError').style.display = 'none';
+}
+
+function addPetCardToGrid(pet, prepend = false) {
+  const grid = document.getElementById('petsGrid');
+  const favs = loadFavs();
+  const isFav = favs.includes(pet.id);
+  const badgeClass = pet.status === 'lost' ? 'badge-lost' : pet.status === 'found' ? 'badge-found' : 'badge-adopt';
+  const badgeLabel = pet.status === 'lost' ? '🔴 Đang thất lạc' : pet.status === 'found' ? '🟢 Đã tìm thấy' : '🟡 Chờ nhận nuôi';
+  const btnStyle = pet.status === 'found' ? 'style="background:var(--green)"' : pet.status === 'adopt' ? 'style="background:var(--orange-dark)"' : '';
+  const btnLabel = pet.status === 'found' ? '📞 Liên hệ' : pet.status === 'adopt' ? '🏠 Nhận nuôi' : '📞 Liên hệ ngay';
+  const isOwner = currentUser && currentUser.email === pet.ownerEmail;
+  const card = document.createElement('div');
+  card.className = 'pet-card';
+  card.dataset.status = pet.status;
+  card.dataset.id = pet.id;
+  card.dataset.name = pet.name.toLowerCase();
+  card.dataset.area = (pet.area + ' ' + pet.location).toLowerCase();
+  card.dataset.type = pet.type.toLowerCase();
+  card.innerHTML = `
+    <button class="fav-btn${isFav ? ' active' : ''}" data-id="${pet.id}" onclick="toggleFav('${pet.id}',this,event)" title="Lưu yêu thích">${isFav ? '❤️' : '🤍'}</button>
+    <div class="pet-img" style="background:var(--orange-pale)">${pet.icon}</div>
+    <div class="pet-info">
+      <span class="pet-badge ${badgeClass}">${badgeLabel}</span>${isOwner ? '<span class="my-post-badge">Của tôi</span>' : ''}
+      <div class="pet-name">${pet.name}</div>
+      <div class="pet-meta">${pet.icon} ${pet.breed || pet.type}${pet.gender ? ' · ' + pet.gender : ''}</div>
+      <div class="pet-meta">📍 ${pet.location || pet.area}</div>
+      <div class="pet-date"><span>📅 ${pet.date}</span><span style="color:${pet.status==='lost'?'var(--red)':pet.status==='found'?'var(--green)':'var(--orange)'};font-weight:700">${statusLabelMap[pet.status]}</span></div>
+      <button class="contact-btn" ${btnStyle}>${btnLabel}</button>
+    </div>`;
+  card.addEventListener('click', (e) => {
+    if (e.target.classList.contains('fav-btn') || e.target.classList.contains('contact-btn')) return;
+    openPetModal(pet.name, `${pet.breed || pet.type}${pet.gender?', '+pet.gender:''}`, pet.location || pet.area, pet.phone, pet.date, pet.icon, pet.desc);
+  });
+  if (prepend) grid.insertBefore(card, grid.firstChild);
+  else grid.appendChild(card);
+}
+
+// ========== LOAD SAVED PETS ON PAGE LOAD ==========
+function loadSavedPets() {
+  const pets = loadPets();
+  pets.forEach(pet => addPetCardToGrid(pet, false));
+  updateFavButtons();
+  updateStats();
+}
+
+// ========== STATS ==========
+function updateStats() {
+  const pets = loadPets();
+  const lost = pets.filter(p => p.status === 'lost').length;
+  const found = pets.filter(p => p.status === 'found').length;
+  const adopt = pets.filter(p => p.status === 'adopt').length;
+  // Update stat cards (add to base numbers)
+  const statNums = document.querySelectorAll('.stat-num');
+  if (statNums[0]) statNums[0].textContent = 126 + lost;
+  if (statNums[1]) statNums[1].textContent = 97 + found;
+  if (statNums[2]) statNums[2].textContent = 20 + adopt;
+  if (statNums[3]) statNums[3].textContent = (200 + pets.length) + '+';
+}
+
+// ========== SEARCH ==========
+function doSearch() {
+  const keyword = document.getElementById('sKeyword').value.trim().toLowerCase();
+  const type = document.getElementById('sType').value.toLowerCase();
+  const area = document.getElementById('sArea').value.toLowerCase();
+  const status = document.getElementById('sStatus').value;
+  let count = 0, total = 0;
+  document.querySelectorAll('.pet-card').forEach(card => {
+    total++;
+    const cardName = (card.dataset.name || '').toLowerCase();
+    const cardArea = (card.dataset.area || card.querySelector('.pet-meta:nth-child(3)')?.textContent || '').toLowerCase();
+    const cardType = (card.dataset.type || '').toLowerCase();
+    const cardStatus = card.dataset.status;
+    const matchKw = !keyword || cardName.includes(keyword) || cardArea.includes(keyword) || (card.querySelector('.pet-meta')?.textContent||'').toLowerCase().includes(keyword);
+    const matchType = !type || cardType.includes(type);
+    const matchArea = !area || cardArea.includes(area.toLowerCase());
+    const matchStatus = !status || cardStatus === status;
+    if (matchKw && matchType && matchArea && matchStatus) { card.style.display = 'block'; count++; }
+    else card.style.display = 'none';
+  });
+  const banner = document.getElementById('searchBanner');
+  const bannerText = document.getElementById('searchBannerText');
+  if (keyword || type || area || status) {
+    banner.style.display = 'flex';
+    bannerText.textContent = `🔍 Tìm thấy ${count} / ${total} tin phù hợp`;
+  } else {
+    banner.style.display = 'none';
+    document.querySelectorAll('.pet-card').forEach(c => c.style.display = 'block');
+  }
+  document.querySelector('#pets').scrollIntoView({ behavior: 'smooth' });
+}
+function clearSearch() {
+  document.getElementById('sKeyword').value = '';
+  document.getElementById('sType').value = '';
+  document.getElementById('sArea').value = '';
+  document.getElementById('sStatus').value = '';
+  document.querySelectorAll('.pet-card').forEach(c => c.style.display = 'block');
+  document.getElementById('searchBanner').style.display = 'none';
+}
+
+// ========== PET MODAL ==========
+function openPetModal(name, breed, area, phone, date, icon, desc) {
+  document.getElementById('modalTitle').textContent = '🐾 ' + name;
+  document.getElementById('modalBreed').textContent = breed;
+  document.getElementById('modalArea').textContent = area;
+  document.getElementById('modalDate').textContent = date;
+  document.getElementById('modalIcon').textContent = icon;
+  if (desc) {
+    let descEl = document.getElementById('modalDesc');
+    if (!descEl) {
+      descEl = document.createElement('div');
+      descEl.id = 'modalDesc';
+      descEl.className = 'modal-detail';
+      descEl.style.marginTop = '8px';
+      document.querySelector('.modal-pet-info').after(descEl);
+    }
+    descEl.innerHTML = desc ? `<strong>Đặc điểm:</strong> ${desc}` : '';
+    descEl.style.display = desc ? 'block' : 'none';
+  }
+  document.getElementById('modalCall').href = 'tel:' + phone.replace(/\s/g,'');
+  document.getElementById('modalZalo').href = 'https://zalo.me/' + phone.replace(/\s/g,'');
+  document.getElementById('petModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+// ========== FILTERS ==========
+let currentFilter = 'all';
+function filterPets(btn, status) {
+  currentFilter = status;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.pet-card').forEach(card => {
+    card.style.display = (status === 'all' || card.dataset.status === status) ? 'block' : 'none';
+  });
+}
+function switchFormTab(btn, type) {
+  document.querySelectorAll('.form-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('activeFormType').value = type;
+}
+
+// ========== ADD FAV BUTTONS TO EXISTING CARDS ==========
+function addFavButtonsToExistingCards() {
+  const favs = loadFavs();
+  document.querySelectorAll('.pet-card').forEach((card, i) => {
+    if (card.querySelector('.fav-btn')) return; // already has one
+    const petId = 'static_' + i;
+    card.dataset.id = petId;
+    // Set data attributes from existing content
+    const nameEl = card.querySelector('.pet-name');
+    const metaEls = card.querySelectorAll('.pet-meta');
+    if (nameEl) card.dataset.name = nameEl.textContent.trim().toLowerCase();
+    if (metaEls[0]) card.dataset.type = metaEls[0].textContent.trim().toLowerCase();
+    if (metaEls[1]) card.dataset.area = metaEls[1].textContent.trim().toLowerCase();
+    const isFav = favs.includes(petId);
+    const btn = document.createElement('button');
+    btn.className = 'fav-btn' + (isFav ? ' active' : '');
+    btn.dataset.id = petId;
+    btn.textContent = isFav ? '❤️' : '🤍';
+    btn.title = 'Lưu yêu thích';
+    btn.addEventListener('click', (e) => toggleFav(petId, btn, e));
+    card.insertBefore(btn, card.firstChild);
+  });
+}
+
+// ========== MAP ==========
+const petMarkers = [
+  { lat: 10.7769, lng: 106.7009, name: 'Mochi', type: 'Chó Poodle', status: 'lost', icon: '🐶', district: 'Quận 3' },
+  { lat: 10.8031, lng: 106.7177, name: 'Kitty', type: 'Mèo Anh lông ngắn', status: 'lost', icon: '🐱', district: 'Bình Thạnh' },
+  { lat: 10.8282, lng: 106.6881, name: 'Buddy', type: 'Golden Retriever', status: 'found', icon: '🐕', district: 'Gò Vấp' },
+  { lat: 10.8016, lng: 106.6517, name: 'Luna', type: 'Mèo ta', status: 'adopt', icon: '🐈', district: 'Tân Bình' },
+  { lat: 10.7326, lng: 106.7218, name: 'Bobby', type: 'Shiba Inu', status: 'lost', icon: '🦊', district: 'Quận 7' },
+  { lat: 10.7717, lng: 106.6673, name: 'Bông', type: 'Chó mix', status: 'adopt', icon: '🐩', district: 'Quận 10' },
+  { lat: 10.7591, lng: 106.6931, name: 'Mimi', type: 'Mèo Ba Tư', status: 'lost', icon: '🐈‍⬛', district: 'Quận 1' },
+  { lat: 10.8411, lng: 106.7594, name: 'Rex', type: 'Chó Corgi', status: 'found', icon: '🐕‍🦺', district: 'Thủ Đức' },
+  { lat: 10.7850, lng: 106.6935, name: 'Snow', type: 'Mèo Scottish Fold', status: 'lost', icon: '🐱', district: 'Quận 1' },
+  { lat: 10.7784, lng: 106.6820, name: 'Coco', type: 'Chó Chihuahua', status: 'found', icon: '🐶', district: 'Quận 5' },
+  { lat: 10.8125, lng: 106.7052, name: 'Miu', type: 'Mèo Xiêm', status: 'adopt', icon: '🐈', district: 'Phú Nhuận' },
+  { lat: 10.7907, lng: 106.6478, name: 'Lucky', type: 'Chó Husky', status: 'lost', icon: '🐕', district: 'Tân Phú' },
+  { lat: 10.7441, lng: 106.6888, name: 'Tom', type: 'Mèo ta', status: 'found', icon: '🐈‍⬛', district: 'Quận 4' },
+  { lat: 10.8310, lng: 106.6789, name: 'Max', type: 'Chó Beagle', status: 'adopt', icon: '🐶', district: 'Gò Vấp' },
+  { lat: 10.8535, lng: 106.7702, name: 'Nâu', type: 'Chó Cỏ Việt Nam', status: 'lost', icon: '🐕', district: 'Thủ Đức' },
+  { lat: 10.7210, lng: 106.7368, name: 'Mèo Ú', type: 'Mèo Anh lông dài', status: 'adopt', icon: '🐱', district: 'Nhà Bè' },
+  { lat: 10.7701, lng: 106.6404, name: 'Bim', type: 'Chó Pug', status: 'found', icon: '🐶', district: 'Bình Tân' },
+  { lat: 10.8178, lng: 106.6301, name: 'Misa', type: 'Mèo Ba Tư', status: 'lost', icon: '🐈', district: 'Quận 12' },
+  { lat: 10.7655, lng: 106.7148, name: 'Cún', type: 'Golden Retriever', status: 'adopt', icon: '🐕', district: 'Quận 2' },
+  { lat: 10.7466, lng: 106.7123, name: 'Mướp', type: 'Mèo Mướp', status: 'found', icon: '🐈‍⬛', district: 'Quận 7' },
+  { lat: 10.7987, lng: 106.6765, name: 'Simba', type: 'Chó Samoyed', status: 'lost', icon: '🐶', district: 'Quận 11' },
+  { lat: 10.7856, lng: 106.7190, name: 'Tiger', type: 'Mèo Bengal', status: 'adopt', icon: '🐱', district: 'Bình Thạnh' },
+  { lat: 10.8380, lng: 106.7250, name: 'Đốm', type: 'Chó Dalmatian', status: 'found', icon: '🐕‍🦺', district: 'Thủ Đức' },
+  { lat: 10.7570, lng: 106.6400, name: 'Pika', type: 'Chó Nhật', status: 'lost', icon: '🐶', district: 'Bình Tân' },
+  { lat: 10.8045, lng: 106.6880, name: 'Lily', type: 'Mèo Ragdoll', status: 'adopt', icon: '🐈', district: 'Phú Nhuận' },
+  { lat: 10.7342, lng: 106.7004, name: 'Rocky', type: 'Chó Pitbull', status: 'found', icon: '🐕', district: 'Quận 8' },
+  { lat: 10.7862, lng: 106.6615, name: 'Sữa', type: 'Mèo Trắng', status: 'lost', icon: '🐱', district: 'Quận 6' },
+  { lat: 10.8198, lng: 106.7462, name: 'Ben', type: 'Chó Border Collie', status: 'adopt', icon: '🐕‍🦺', district: 'Thủ Đức' }
+];
+const statusColor = { lost: '#E24B4A', found: '#3DAB6E', adopt: '#F5823A' };
+const statusLabel = { lost: 'Đang thất lạc', found: 'Đã tìm thấy', adopt: 'Chờ nhận nuôi' };
+let leafletMap, allLeafletMarkers = [];
+
+function initMap() {
+  leafletMap = L.map('leafletMap').setView([10.7769, 106.7009], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(leafletMap);
+
+  petMarkers.forEach(p => {
+    const color = statusColor[p.status];
+    const icon = L.divIcon({
+      html: `<div style="width:36px;height:36px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:1.1rem;cursor:pointer">${p.icon}</div>`,
+      className: '', iconSize: [36,36], iconAnchor: [18,18]
+    });
+    const m = L.marker([p.lat, p.lng], { icon })
+      .bindPopup(`<div style="font-family:'Nunito',sans-serif;min-width:160px;padding:4px">
+        <div style="font-size:1.5rem;text-align:center;margin-bottom:6px">${p.icon}</div>
+        <strong style="font-size:1rem">${p.name}</strong><br>
+        <span style="font-size:0.82rem;color:#666">${p.type}</span><br>
+        <span style="display:inline-block;margin:5px 0;padding:2px 8px;border-radius:10px;font-size:0.78rem;font-weight:700;background:${color}22;color:${color}">${statusLabel[p.status]}</span><br>
+        <span style="font-size:0.82rem;color:#888">📍 ${p.district}</span>
+      </div>`)
+      .addTo(leafletMap);
+    m._petStatus = p.status;
+    allLeafletMarkers.push(m);
+  });
+  document.getElementById('mapCount').textContent = 'Đang hiển thị ' + allLeafletMarkers.length + ' địa điểm';
+}
+
+function mapFilter(btn, status) {
+  document.querySelectorAll('.map-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  let count = 0;
+  allLeafletMarkers.forEach(m => {
+    if (status === 'all' || m._petStatus === status) {
+      m.addTo(leafletMap); count++;
+    } else {
+      leafletMap.removeLayer(m);
+    }
+  });
+  document.getElementById('mapCount').textContent = 'Đang hiển thị ' + count + ' địa điểm';
+}
+
+// ========== INIT ==========
+window.addEventListener('load', () => {
+  // Restore session
+  if (currentUser) {
+    document.getElementById('navAuth').style.display = 'none';
+    const nu = document.getElementById('navUser');
+    nu.style.display = 'flex';
+    document.getElementById('navUsername').textContent = currentUser.name;
+    document.getElementById('navAvatar').textContent = currentUser.avatar;
+  }
+  addFavButtonsToExistingCards();
+  loadSavedPets();
+  setTimeout(initMap, 200);
+});
+</script>
+</body>
+</html>
